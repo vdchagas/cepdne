@@ -1,0 +1,42 @@
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: cepdne
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: python:3.10-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    environment:
+      DNE_DB_HOST: mysql
+      DNE_DB_USER: root
+      DNE_DB_PASSWORD: root
+      DNE_DB_NAME: cepdne
+      DNE_DB_PORT: 3306
+      DNE_TABLE: postcode_correios
+      DNE_LOG_PATH: logs/dne_sync.log
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: >-
+      bash -lc "pip install -r requirements.txt && python app.py"
+
+volumes:
+  mysql_data:

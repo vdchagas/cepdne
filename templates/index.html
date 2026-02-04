@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atualização DNE</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap">
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: 'Inter', system-ui, sans-serif;
+      background: radial-gradient(circle at top, #eef2ff, #f8fafc 60%);
+    }
+
+    body {
+      margin: 0;
+      padding: 32px;
+      color: #0f172a;
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 24px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin: 0;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .button {
+      border: none;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-weight: 600;
+      background: #4f46e5;
+      color: white;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .button:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+
+    .status {
+      display: grid;
+      gap: 8px;
+      font-size: 0.95rem;
+    }
+
+    .status strong {
+      color: #111827;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .badge.success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge.failed {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .badge.running {
+      background: #e0f2fe;
+      color: #075985;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 12px;
+      overflow: auto;
+      max-height: 360px;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Atualização semanal do DNE</h1>
+      <button class="button" id="runButton">Iniciar sincronização</button>
+    </div>
+
+    <div class="card status" id="statusCard">
+      <div><strong>Status:</strong> <span id="statusBadge" class="badge">Carregando...</span></div>
+      <div><strong>Última execução:</strong> <span id="lastRun">-</span></div>
+      <div><strong>Resultado:</strong> <span id="lastResult">-</span></div>
+      <div><strong>Erro:</strong> <span id="lastError">-</span></div>
+    </div>
+
+    <div class="card">
+      <div class="header" style="margin-bottom: 12px;">
+        <h2 style="margin: 0; font-size: 1.3rem;">Logs recentes</h2>
+        <button class="button" id="refreshButton">Atualizar logs</button>
+      </div>
+      <pre id="logOutput">Aguardando logs...</pre>
+    </div>
+  </div>
+
+  <script>
+    const runButton = document.getElementById('runButton');
+    const refreshButton = document.getElementById('refreshButton');
+    const statusBadge = document.getElementById('statusBadge');
+    const lastRun = document.getElementById('lastRun');
+    const lastResult = document.getElementById('lastResult');
+    const lastError = document.getElementById('lastError');
+    const logOutput = document.getElementById('logOutput');
+
+    function setBadge(status) {
+      statusBadge.className = 'badge';
+      if (status === 'running') {
+        statusBadge.classList.add('running');
+        statusBadge.textContent = 'Executando';
+        runButton.disabled = true;
+      } else if (status === 'success') {
+        statusBadge.classList.add('success');
+        statusBadge.textContent = 'Concluído';
+        runButton.disabled = false;
+      } else if (status === 'failed') {
+        statusBadge.classList.add('failed');
+        statusBadge.textContent = 'Falhou';
+        runButton.disabled = false;
+      } else {
+        statusBadge.textContent = 'Pronto';
+        runButton.disabled = false;
+      }
+    }
+
+    async function fetchStatus() {
+      const response = await fetch('/status');
+      const data = await response.json();
+      if (data.running) {
+        setBadge('running');
+      } else if (data.last_result === 'success') {
+        setBadge('success');
+      } else if (data.last_result === 'failed') {
+        setBadge('failed');
+      } else {
+        setBadge('idle');
+      }
+      lastRun.textContent = data.last_run || '-';
+      lastResult.textContent = data.last_result || '-';
+      lastError.textContent = data.last_error || '-';
+    }
+
+    async function fetchLogs() {
+      const response = await fetch('/logs');
+      const data = await response.json();
+      logOutput.textContent = data.logs || 'Sem logs ainda.';
+    }
+
+    runButton.addEventListener('click', async () => {
+      runButton.disabled = true;
+      await fetch('/run', { method: 'POST' });
+      await fetchStatus();
+      await fetchLogs();
+    });
+
+    refreshButton.addEventListener('click', async () => {
+      await fetchLogs();
+    });
+
+    setInterval(fetchStatus, 5000);
+    setInterval(fetchLogs, 15000);
+
+    fetchStatus();
+    fetchLogs();
+  </script>
+</body>
+</html>
